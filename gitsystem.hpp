@@ -36,9 +36,11 @@ class Caches
 {
 public:
 	// waring : 删除元素时迭代器会失效
-	std::set<File> files;
-	//unsigned int version;
-	SHINE_SERIAL(Caches, files);
+	std::set<File>	files;		// 文件状态列表
+	Strings			last_files;	// 上次改动的文件
+	uint32_t		git_version;// 版本号
+	
+	SHINE_SERIAL(Caches, files, last_files, git_version);
 };
 
 //********************************* end ***********************************//
@@ -245,7 +247,6 @@ namespace sys {
 	};
 };
 
-
 // 类定义区 // 
 namespace sys 
 {
@@ -290,6 +291,8 @@ namespace sys
 
 		bool finish()
 		{
+			ce.last_files = cgd_files;
+			ce.git_version++;
 			string buffer = ce.shine_serial_encode();
 			return funcs::writeCache(cache_path, buffer);
 		}
@@ -317,6 +320,8 @@ namespace sys
 			hash_file[name] = ce.files.insert(file).first;
 			std::sort(cach_files.begin(), cach_files.end());
 
+			cgd_files.emplace_back(name);
+
 			return funcs::writeCache(cache_dir + file.nameHash.toString(), file_text);
 		}
 
@@ -326,26 +331,26 @@ namespace sys
 		bool removeFile(const string& name)
 		{
 			auto const_p_file = hash_file[name];
-
-			File file;
-			file.nameHash = austin::MurmurHash3(name.c_str(), name.size());
-			ce.files.erase(file);
-			hash_file.erase(name);
+			auto nam_hash = austin::MurmurHash3(name.c_str(), name.size());
 
 			//写增量
-			string incer_path = cache_dir + "\\" + file.nameHash.toString() + "\\" + std::to_string(const_p_file->version);
+			string incer_path = cache_dir + "\\" + nam_hash.toString() + "\\" + std::to_string(const_p_file->version);
 			string incer_text; funcs::readCache(incer_path, incer_text);
-			incer_path = cache_dir + "\\" + file.nameHash.toString() + "\\" + std::to_string(const_p_file->version+1);
+			incer_path = cache_dir + "\\" + nam_hash.toString() + "\\" + std::to_string(const_p_file->version+1);
 			funcs::writeCache(incer_path, incer_text);
 
+			/*
 			auto it = lower_bound(cach_files.begin(), cach_files.end(), name);
 			cach_files.erase(it);
 			ce.files.erase(const_p_file);
 			hash_file.erase(name);
+			*/
 
 			// 改文件状态
 			auto pfile = const_cast<File*>(&(*const_p_file));
 			pfile->version++;
+
+			cgd_files.emplace_back(name);
 
 			return true;
 		}
@@ -378,6 +383,37 @@ namespace sys
 			funcs::getFileStatu(name, pfile->fileStat);
 			funcs::readMappFile(name, curent_text);
 			pfile->fileHash = austin::MurmurHash3(curent_text.c_str(), curent_text.size());
+
+			cgd_files.emplace_back(name);
+
+			return true;
+		}
+
+		/**
+		 * 恢复文件的上一版本
+		 */
+		bool resetFile(const string& name)
+		{
+			auto p_file = hash_file[name];
+			auto origi_path = cache_dir + "\\" + p_file->fileHash.toString() + "\\" + p_file->fileHash.toString();
+			auto incer_path = cache_dir + "\\" + p_file->fileHash.toString() + "\\" + std::to_string(p_file->version);
+			string origin_text, incer_text;
+			funcs::readMappFile(origi_path, origin_text);
+			funcs::readCache(incer_path, incer_text);
+
+			Strings origin_lines, incer_lines;
+			funcs::splitString(origin_text, origin_lines);
+			funcs::splitString(incer_text, incer_lines);
+			auto diffs = myers::get_diff(origin_lines, incer_lines);
+
+			for (auto &diff : diffs.diffs)
+				origin_lines.insert(origin_lines.begin() + diff.index, diff.content);
+			
+			std::ofstream out(name, std::ios::trunc);
+			for (auto& line : origin_lines)
+				out << line  << std::endl;
+			out.close();
+			(const_cast<File*>(&(*p_file)))->version--;
 			return true;
 		}
 		
@@ -398,7 +434,8 @@ namespace sys
 		/* 缓存中： 文件名 -> 文件状态指针 */
 		std::map<string, std::set<File>::iterator> hash_file;
 
-
+		/* 此次改动的文件列表 */
+		Strings cgd_files;
 	};
 
 	/**
@@ -622,10 +659,20 @@ namespace sys {
 		
 	}
 
+	void GIT_Reset()
+	{
+		auto& last_files = Git::getInstance()->ce.last_files;
+		for (auto &cgd_file : last_files)
+			Git::getInstance()->resetFile(cgd_file);
+		
+	}
+
 	void GIT_Quit()
 	{
 		sys::Git::getInstance()->finish();
 	}
+
+	
 
 };
 

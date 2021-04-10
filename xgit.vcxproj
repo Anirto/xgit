@@ -143,8 +143,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="algorithm.hpp" />
-    <ClInclude Include="xgitconfig.h" />
     <ClInclude Include="gitsystem.hpp" />
+    <ClInclude Include="xgitconfig.h" />
     <ClInclude Include="serialize.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
