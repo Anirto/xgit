@@ -160,10 +160,8 @@ namespace sys {
 		/**
 		* 写增量到文件中
 		*/
-		bool writeDiffsTo(const string& name, const std::vector<Diff>& diffs)
+		bool writeDiffsTo(const string& name, const Diffs& dif)
 		{
-			Diffs dif;
-			dif.diffs = diffs;
 			auto buffer = dif.shine_serial_encode();
 			std::ofstream out(name);
 			if (!out.is_open())

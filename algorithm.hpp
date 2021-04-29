@@ -260,7 +260,7 @@ namespace myers {
 					}
 				}
 
-				while (((v_k->y - k) < size_a) && (v_k->y < size_b) && (*(first_a + v_k->y - k) == *(first_b + v_k->y)))
+				while (((v_k->y - k) < size_a) && (v_k->y < size_b) && (*(first_a + (v_k->y - k)) == *(first_b + v_k->y)))
 				{
 					TreeNode node(EQU, v_k->tail);
 					v_k->tail = tree.size();
@@ -332,5 +332,16 @@ namespace myers {
 		}
 
 		return ret;
+	}
+
+	void merage_diff(Strings& out, const Diffs& diffs)
+	{
+		for (auto& it : diffs.diffs)
+		{
+			if (it.content.empty())
+				out.erase(out.begin() + it.index);
+			else
+				out.insert(out.begin() + it.index, it.content);
+		}
 	}
 };
