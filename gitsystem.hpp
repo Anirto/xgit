@@ -29,7 +29,7 @@ public:
 	string    filename;
 	uint32_t  version;
 
-	SHINE_SERIAL(File, nameHash, fileHash, filename, version);
+	SHINE_SERIAL(File, nameHash, fileHash, filename, fileStat, version);
 };
 
 class Caches
@@ -37,10 +37,16 @@ class Caches
 public:
 	// waring : 删除元素时迭代器会失效
 	std::set<File>	files;		// 文件状态列表
-	Strings			last_files;	// 上次改动的文件
 	uint32_t		git_version;// 版本号
 	
-	SHINE_SERIAL(Caches, files, last_files, git_version);
+	SHINE_SERIAL(Caches, files, git_version);
+};
+
+class Version
+{
+public:
+	Strings cgd_files;
+	SHINE_SERIAL(Version, cgd_files);
 };
 
 //********************************* end ***********************************//
@@ -85,16 +91,9 @@ namespace sys {
 		*/
 		bool readMappFile(const string& name, string& out)
 		{
-			/* 记录：文件名->文件内容 */
-			static 	std::map<string, string> file_mapp;
-			if (file_mapp.count(name))
-			{
-				out = file_mapp[name];
-				return true;
-			}
-
 			// 内存映射
 			HANDLE hfile = CreateFile(name.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			auto ttt = GetLastError();
 			assert(hfile);
 			assert(!(hfile == INVALID_HANDLE_VALUE));
 
@@ -114,7 +113,6 @@ namespace sys {
 			CloseHandle(mapobj);
 			CloseHandle(hfile);
 
-			file_mapp[name] = out;
 			return true;
 
 		}
@@ -163,7 +161,7 @@ namespace sys {
 		bool writeDiffsTo(const string& name, const Diffs& dif)
 		{
 			auto buffer = dif.shine_serial_encode();
-			std::ofstream out(name);
+			std::ofstream out(name, std::ios::binary);
 			if (!out.is_open())
 			{
 				std::cerr << "write version files failed." << std::endl;
@@ -190,7 +188,7 @@ namespace sys {
 			std::ifstream in(path, std::ios::binary);
 			if (!in.is_open())
 			{
-				std::cerr << "fatal: read cache failed." << std::endl;
+				//std::cerr << "fatal: read cache failed." << std::endl;
 				in.close();
 				return false;
 			}
@@ -207,10 +205,10 @@ namespace sys {
 		/**
 		 * 写缓存文件
 		 */
-		bool writeCache(const string& path, string& buffer)
+		bool writeCache(const string& path, const string& buffer)
 		{
 			// write cache
-			std::ofstream out(cache_path, std::ios::trunc);
+			std::ofstream out(path, std::ios::trunc | std::ios::binary);
 			if (!out.is_open())
 			{
 				std::cerr << "fatal: write cache failed." << std::endl;
@@ -289,9 +287,10 @@ namespace sys
 
 		bool finish()
 		{
-			ce.last_files = cgd_files;
-			ce.git_version++;
-			string buffer = ce.shine_serial_encode();
+			string buffer = version.shine_serial_encode();
+			funcs::writeCache(curr_dir + "\\.git\\" + std::to_string(ce.git_version++), buffer);
+			version.cgd_files.clear();
+			buffer = ce.shine_serial_encode();
 			return funcs::writeCache(cache_path, buffer);
 		}
 
@@ -309,18 +308,26 @@ namespace sys
 			if (funcs::getFileStatu(name, file.fileStat) == false)
 				return false;
 
+			if (file.fileStat.mode & S_IFMT != 0x0020000)
+				return false;
+
 			file.version = 0;
 			file.filename = name;
 			file.fileHash = austin::MurmurHash3(file_text.c_str(), file_text.size());
 			file.nameHash = austin::MurmurHash3(name.c_str(), name.size());
+			funcs::getFileStatu(name, file.fileStat);
 
 			cach_files.push_back(name);
 			hash_file[name] = ce.files.insert(file).first;
 			std::sort(cach_files.begin(), cach_files.end());
 
-			cgd_files.emplace_back(name);
+			version.cgd_files.emplace_back(name);
 
-			return funcs::writeCache(cache_dir + file.nameHash.toString(), file_text);
+			string write_dir = cache_dir + "\\" + file.nameHash.toString();
+			if (_mkdir(write_dir.c_str()) < 0)
+				return false;
+
+			return funcs::writeCache(write_dir + "\\" + file.nameHash.toString(), file_text);
 		}
 
 		/**
@@ -348,7 +355,7 @@ namespace sys
 			auto pfile = const_cast<File*>(&(*const_p_file));
 			pfile->version++;
 
-			cgd_files.emplace_back(name);
+			version.cgd_files.emplace_back(name);
 
 			return true;
 		}
@@ -371,9 +378,8 @@ namespace sys
 
 			// 写增量
 			string incer_path = cache_dir + "\\" + const_pfile->nameHash.toString() + "\\" + std::to_string(const_pfile->version);
-			auto diffs =  myers::get_diff(origin_lins, curent_lins);
-			auto incer = diffs.shine_serial_encode();
-			funcs::writeCache(incer_path, incer);
+			auto diffs = myers::get_diff(origin_lins, curent_lins);
+			funcs::writeDiffsTo(incer_path, diffs);
 
 			// 改文件状态
 			auto pfile = const_cast<File*>(&(*const_pfile));
@@ -382,7 +388,7 @@ namespace sys
 			funcs::readMappFile(name, curent_text);
 			pfile->fileHash = austin::MurmurHash3(curent_text.c_str(), curent_text.size());
 
-			cgd_files.emplace_back(name);
+			version.cgd_files.emplace_back(name);
 
 			return true;
 		}
@@ -393,21 +399,24 @@ namespace sys
 		bool resetFile(const string& name)
 		{
 			auto p_file = hash_file[name];
-			auto origi_path = cache_dir + "\\" + p_file->fileHash.toString() + "\\" + p_file->fileHash.toString();
-			auto incer_path = cache_dir + "\\" + p_file->fileHash.toString() + "\\" + std::to_string(p_file->version);
-			string origin_text, incer_text;
+
+			auto origi_path = cache_dir + "\\" + p_file->nameHash.toString() + "\\" + p_file->nameHash.toString();
+			auto incer_path = cache_dir + "\\" + p_file->nameHash.toString() + "\\" + std::to_string(p_file->version-2);
+			string origin_text, incer_buff;
 			funcs::readMappFile(origi_path, origin_text);
-			funcs::readCache(incer_path, incer_text);
 
-			Strings origin_lines, incer_lines;
-			funcs::splitString(origin_text, origin_lines);
-			funcs::splitString(incer_text, incer_lines);
-			auto diffs = myers::get_diff(origin_lines, incer_lines);
-
-			for (auto &diff : diffs.diffs)
-				origin_lines.insert(origin_lines.begin() + diff.index, diff.content);
+			if (p_file->version == 1)
+				return funcs::writeCache(name, origin_text);
 			
-			std::ofstream out(name, std::ios::trunc);
+			Strings origin_lines;
+			funcs::splitString(origin_text, origin_lines);
+
+			Diffs diffs;
+			funcs::readDiffsForm(incer_path, diffs);
+
+			myers::merage_diff(origin_lines, diffs);
+			
+			std::ofstream out(name, std::ios::trunc | std::ios::binary);
 			for (auto& line : origin_lines)
 				out << line  << std::endl;
 			out.close();
@@ -433,7 +442,7 @@ namespace sys
 		std::map<string, std::set<File>::iterator> hash_file;
 
 		/* 此次改动的文件列表 */
-		Strings cgd_files;
+		Version version;
 	};
 
 	/**
@@ -486,7 +495,11 @@ namespace sys
 						}
 					}
 					else
-						files.push_back(p.assign(path).append("\\").append(fileinfo.name));
+					{
+						if (path.find(".git") == string::npos)
+							files.push_back(p.assign(path).append("\\").append(fileinfo.name));
+					}
+						
 
 				} while (_findnext(hFile, &fileinfo) == 0);
 				_findclose(hFile);
@@ -532,10 +545,12 @@ namespace sys
 					// 再判断文件内容哈希是否改变
 					FileStatu t_fstatu;
 					getFileStatu(*b, t_fstatu);
+					auto k1 = Git::getInstance()->hash_file[*a]->fileStat.mtime;
 					if (Git::getInstance()->hash_file[*a]->fileStat.mtime != t_fstatu.mtime)
 					{
 						string file_text;
 						readMappFile(*a, file_text);
+			
 						if (austin::MurmurHash3(file_text.c_str(), file_text.size()) != Git::getInstance()->hash_file[*a]->fileHash)
 						{
 							change.iter = a;
@@ -586,7 +601,7 @@ namespace sys {
 		if (_access(cache_dir.c_str(), 06))
 		{
 			std::cerr << "error:  not a git repository here." << std::endl;
-			std::cerr << "using:  [git] [init] to inital this repository" << std::endl;
+			std::cerr << "using:  [init] to inital this repository" << std::endl;
 			return;
 		}
 
@@ -606,13 +621,15 @@ namespace sys {
 	void GIT_Status()
 	{
 		auto changes = funcs::getChangedFiles();
+		if (changes.size() == 0)
+			std::cout << "work tree is clean" << std::endl;
 		
 		for (auto &changed : changes)
 		{
 			switch (changed.mode)
 			{
 			case ADD:
-				std::cout << "    add :  " << *changed.iter << std::endl;
+				std::cout << "    new :  " << *changed.iter << std::endl;
 				break;
 
 			case DEL:
@@ -632,6 +649,9 @@ namespace sys {
 	void GIT_Commit()
 	{
 		auto changes = funcs::getChangedFiles();
+
+		if (changes.size() == 0)
+			return;
 
 		for (auto& changed : changes)
 		{
@@ -654,23 +674,23 @@ namespace sys {
 			};
 		}
 
-		
+		sys::Git::getInstance()->finish();
 	}
 
 	void GIT_Reset()
 	{
-		auto& last_files = Git::getInstance()->ce.last_files;
+		string buffer;
+		auto version = Git::getInstance()->ce.git_version;
+		string path = curr_dir + "\\.git\\" + std::to_string(version-1);
+
+		bool dbg = funcs::readCache(path, buffer);
+		Git::getInstance()->version.shine_serial_decode(buffer);
+
+		auto& last_files = Git::getInstance()->version.cgd_files;
 		for (auto &cgd_file : last_files)
 			Git::getInstance()->resetFile(cgd_file);
 		
 	}
-
-	void GIT_Quit()
-	{
-		sys::Git::getInstance()->finish();
-	}
-
-	
 
 };
 
