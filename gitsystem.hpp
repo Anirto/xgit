@@ -635,7 +635,7 @@ namespace sys {
 		auto changes = funcs::getChangedFiles();
 		
 		if (changes.size() == 0)
-			std::cout << "the current version is" << Git::getInstance()->ce.git_version
+			std::cout << "the current version is " << Git::getInstance()->ce.git_version
 			<< ". work tree is clean" << std::endl;
 		
 		for (auto &changed : changes)
