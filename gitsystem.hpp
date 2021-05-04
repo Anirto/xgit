@@ -188,7 +188,7 @@ namespace sys {
 			std::ifstream in(path, std::ios::binary);
 			if (!in.is_open())
 			{
-				//std::cerr << "fatal: read cache failed." << std::endl;
+				std::cerr << "fatal: read cache failed." << std::endl;
 				in.close();
 				return false;
 			}
@@ -199,6 +199,7 @@ namespace sys {
 				buffer = tmp.str();
 				in.close();
 			}
+			
 			return true;
 		}
 
@@ -238,6 +239,7 @@ namespace sys {
 
 			out.mode = st.st_mode;
 			out.mtime = st.st_mtime;
+			_close(fd);
 			return true;
 		}
 	};
@@ -308,6 +310,7 @@ namespace sys
 			if (funcs::getFileStatu(name, file.fileStat) == false)
 				return false;
 
+			// to do: how to juge it is binary file
 			if (file.fileStat.mode & S_IFMT != 0x0020000)
 				return false;
 
@@ -315,7 +318,6 @@ namespace sys
 			file.filename = name;
 			file.fileHash = austin::MurmurHash3(file_text.c_str(), file_text.size());
 			file.nameHash = austin::MurmurHash3(name.c_str(), name.size());
-			funcs::getFileStatu(name, file.fileStat);
 
 			cach_files.push_back(name);
 			hash_file[name] = ce.files.insert(file).first;
@@ -407,6 +409,11 @@ namespace sys
 
 			if (p_file->version == 1)
 				return funcs::writeCache(name, origin_text);
+			if (p_file->version == 0)
+			{
+				int dbg = remove(name.c_str());
+				return dbg;
+			}
 			
 			Strings origin_lines;
 			funcs::splitString(origin_text, origin_lines);
@@ -545,18 +552,13 @@ namespace sys
 					// 再判断文件内容哈希是否改变
 					FileStatu t_fstatu;
 					getFileStatu(*b, t_fstatu);
-					auto k1 = Git::getInstance()->hash_file[*a]->fileStat.mtime;
 					if (Git::getInstance()->hash_file[*a]->fileStat.mtime != t_fstatu.mtime)
 					{
-						string file_text;
-						readMappFile(*a, file_text);
-			
-						if (austin::MurmurHash3(file_text.c_str(), file_text.size()) != Git::getInstance()->hash_file[*a]->fileHash)
-						{
-							change.iter = a;
-							change.mode = MODIFY;
-							ret.emplace_back(change);
-						}
+						
+						change.iter = a;
+						change.mode = MODIFY;
+						ret.emplace_back(change);
+						
 					}
 					++a;
 					++b;

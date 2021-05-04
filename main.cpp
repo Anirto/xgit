@@ -49,13 +49,14 @@ static void test()
 static void help()
 {
 	cout << "using [command] :" << endl
-		<< "help	if you dont konw how to use this software, just input \'help\'\n"	<< endl
-		<< "init	this command will create warehouse in current directory\n"			<< endl
-		<< "status	using \'status\' command to show which files have changed\n"		<< endl
-		<< "commit	after you input \'commit\', all changed files "						<< endl
-		<< "        including deleted and added files, will be recorded\n"				<< endl
-		<< "reset   if you accidentally change or delete some files,"					<< endl
-		<< "        you can use this command if you want to undo the change"			<< endl;
+		<< "help    if you dont konw how to use this software, just input \'help\'\n" << endl
+		<< "init    this command will create warehouse in current directory\n" << endl
+		<< "status  using \'status\' command to show which files have changed\n" << endl
+		<< "commit  after you input \'commit\', all changed files " << endl
+		<< "        including deleted and added files, will be recorded\n" << endl
+		<< "reset   if you accidentally change or delete some files," << endl
+		<< "        you can use this command if you want to undo the change\n" << endl
+		<< "exit    exit this softeare\n" << endl;
 }
 
 
@@ -87,6 +88,7 @@ int main(int argc, char* argv[])
 	} while (1);
 
 	//test();
+	
 
 	return 0;
 }
