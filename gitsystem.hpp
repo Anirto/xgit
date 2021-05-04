@@ -28,8 +28,9 @@ public:
 	FileStatu fileStat;
 	string    filename;
 	uint32_t  version;
+	bool      isDelete;
 
-	SHINE_SERIAL(File, nameHash, fileHash, filename, fileStat, version);
+	SHINE_SERIAL(File, nameHash, fileHash, filename, fileStat, version, isDelete);
 };
 
 class Caches
@@ -105,6 +106,8 @@ namespace sys {
 				
 
 			HANDLE mapobj = CreateFileMapping(hfile, NULL, PAGE_READONLY, 0, 0, NULL);
+			if (mapobj == nullptr)
+				return true;
 			void* mapfile = MapViewOfFile(mapobj, FILE_MAP_READ, 0, 0, GetFileSize(hfile, NULL));
 
 			out = (static_cast<char*>(mapfile));
@@ -318,8 +321,9 @@ namespace sys
 			file.filename = name;
 			file.fileHash = austin::MurmurHash3(file_text.c_str(), file_text.size());
 			file.nameHash = austin::MurmurHash3(name.c_str(), name.size());
+			file.isDelete = false;
 
-			cach_files.push_back(name);
+			cach_files.emplace_back(name);
 			hash_file[name] = ce.files.insert(file).first;
 			std::sort(cach_files.begin(), cach_files.end());
 
@@ -340,22 +344,22 @@ namespace sys
 			auto const_p_file = hash_file[name];
 			auto nam_hash = austin::MurmurHash3(name.c_str(), name.size());
 
-			//写增量
-			string incer_path = cache_dir + "\\" + nam_hash.toString() + "\\" + std::to_string(const_p_file->version);
-			string incer_text; funcs::readCache(incer_path, incer_text);
-			incer_path = cache_dir + "\\" + nam_hash.toString() + "\\" + std::to_string(const_p_file->version+1);
-			funcs::writeCache(incer_path, incer_text);
+			string incer_path = cache_dir + "\\" + nam_hash.toString() + "\\" + std::to_string(const_p_file->version - 1);
+			string write_path = cache_dir + "\\" + nam_hash.toString() + "\\" + std::to_string(const_p_file->version);
+			string incer_buff;
 
-			/*
-			auto it = lower_bound(cach_files.begin(), cach_files.end(), name);
-			cach_files.erase(it);
-			ce.files.erase(const_p_file);
-			hash_file.erase(name);
-			*/
+			if (const_p_file->version == 0)
+				funcs::writeCache(write_path, incer_buff);
+			else
+			{
+				funcs::readCache(incer_path, incer_buff);
+				funcs::writeCache(write_path, incer_buff);
+			}
 
 			// 改文件状态
 			auto pfile = const_cast<File*>(&(*const_p_file));
 			pfile->version++;
+			pfile->isDelete = true;
 
 			version.cgd_files.emplace_back(name);
 
@@ -409,7 +413,7 @@ namespace sys
 
 			if (p_file->version == 1)
 				return funcs::writeCache(name, origin_text);
-			if (p_file->version == 0)
+			if (p_file->version <= 0)
 			{
 				int dbg = remove(name.c_str());
 				return dbg;
@@ -539,26 +543,32 @@ namespace sys
 				{
 				case myers::DEL:
 				{
-					change.iter = a;
-					change.mode = DEL;
-					ret.emplace_back(change);
+					if (!Git::getInstance()->hash_file[*a]->isDelete)
+					{
+						change.iter = a;
+						change.mode = DEL;
+						ret.emplace_back(change);
+					}
 					++a;
 					break;
 				}
 
 				case myers::EQU:
 				{
-					// 先判断修改时间是否改变
-					// 再判断文件内容哈希是否改变
+					// 判断修改时间是否改变
 					FileStatu t_fstatu;
 					getFileStatu(*b, t_fstatu);
 					if (Git::getInstance()->hash_file[*a]->fileStat.mtime != t_fstatu.mtime)
 					{
-						
-						change.iter = a;
-						change.mode = MODIFY;
-						ret.emplace_back(change);
-						
+						// 判断文件内容哈希是否改变
+						string file_text;
+						readMappFile(*a, file_text);
+						if (austin::MurmurHash3(file_text.c_str(), file_text.size()) != Git::getInstance()->hash_file[*a]->fileHash)
+						{
+							change.iter = a;
+							change.mode = MODIFY;
+							ret.emplace_back(change);
+						}
 					}
 					++a;
 					++b;
@@ -623,8 +633,10 @@ namespace sys {
 	void GIT_Status()
 	{
 		auto changes = funcs::getChangedFiles();
+		
 		if (changes.size() == 0)
-			std::cout << "work tree is clean" << std::endl;
+			std::cout << "the current version is" << Git::getInstance()->ce.git_version
+			<< ". work tree is clean" << std::endl;
 		
 		for (auto &changed : changes)
 		{
@@ -682,15 +694,17 @@ namespace sys {
 	void GIT_Reset()
 	{
 		string buffer;
-		auto version = Git::getInstance()->ce.git_version;
+		auto version = Git::getInstance()->ce.git_version--;
 		string path = curr_dir + "\\.git\\" + std::to_string(version-1);
 
 		bool dbg = funcs::readCache(path, buffer);
 		Git::getInstance()->version.shine_serial_decode(buffer);
 
 		auto& last_files = Git::getInstance()->version.cgd_files;
-		for (auto &cgd_file : last_files)
+		for (auto& cgd_file : last_files)
+		{
 			Git::getInstance()->resetFile(cgd_file);
+		}
 		
 	}
 

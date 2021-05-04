@@ -50,7 +50,7 @@ static void help()
 {
 	cout << "using [command] :" << endl
 		<< "help    if you dont konw how to use this software, just input \'help\'\n" << endl
-		<< "init    this command will create warehouse in current directory\n" << endl
+		<< "init    this command will create repository in current directory\n" << endl
 		<< "status  using \'status\' command to show which files have changed\n" << endl
 		<< "commit  after you input \'commit\', all changed files " << endl
 		<< "        including deleted and added files, will be recorded\n" << endl
