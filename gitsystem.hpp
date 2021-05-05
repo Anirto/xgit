@@ -6,7 +6,7 @@
 
 using std::string;
 
-//******************************* ¶¨Òå»º´æ½á¹¹ ********************************//
+//******************************* å®šä¹‰ç¼“å­˜ç»“æ„ ********************************//
 struct FileStatu
 {
 	long long mtime;
@@ -36,9 +36,9 @@ public:
 class Caches
 {
 public:
-	// waring : É¾³ıÔªËØÊ±µü´úÆ÷»áÊ§Ğ§
-	std::set<File>	files;		// ÎÄ¼ş×´Ì¬ÁĞ±í
-	uint32_t		git_version;// °æ±¾ºÅ
+	// waring : åˆ é™¤å…ƒç´ æ—¶è¿­ä»£å™¨ä¼šå¤±æ•ˆ
+	std::set<File>	files;		// æ–‡ä»¶çŠ¶æ€åˆ—è¡¨
+	uint32_t		git_version;// ç‰ˆæœ¬å·
 	
 	SHINE_SERIAL(Caches, files, git_version);
 };
@@ -51,10 +51,10 @@ public:
 };
 
 //********************************* end ***********************************//
+	//           .\.git\cache  .\.git\objs  .\ 
 
 namespace sys {
 	
-	//           .\.git\cache  .\.git\objs  .\ 
 	static string cache_path, cache_dir, curr_dir;
 	/*
 		---cache
@@ -88,11 +88,12 @@ namespace sys {
 		using std::string;
 
 		/**
-		* Ê¹ÓÃÄÚ´æÓ³Éä¶ÁÈ¡ÎÄ¼ş£¬
+		* ä½¿ç”¨å†…å­˜æ˜ å°„è¯»å–æ–‡ä»¶ï¼Œ
 		*/
 		bool readMappFile(const string& name, string& out)
 		{
-			// ÄÚ´æÓ³Éä
+#ifdef WIN32
+			// å†…å­˜æ˜ å°„
 			HANDLE hfile = CreateFile(name.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			auto ttt = GetLastError();
 			assert(hfile);
@@ -115,13 +116,34 @@ namespace sys {
 			UnmapViewOfFile((LPVOID)mapfile);
 			CloseHandle(mapobj);
 			CloseHandle(hfile);
+#else
+			int fd = open(name.c_str(), O_RDONLY);
+			if (fd < 0)
+				return false;
+			
+			struct stat statu;
 
+			if (fstat(fd, &statu) < 0) 
+			{
+				close(fd);
+				return false;
+			}
+
+			void* map = mmap(NULL, statu.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+			close(fd);
+
+			if (-1 == (int)(long)map)
+				return NULL;
+
+			out = static_cast<char*>(map);
+			munmap(map, statu.st_size);
+#endif
 			return true;
 
 		}
 		
 		/**
-		* ÒÔ»»ĞĞ·û·Ö¸î×Ö·û´®
+		* ä»¥æ¢è¡Œç¬¦åˆ†å‰²å­—ç¬¦ä¸²
 		*/
 		bool splitString(const string& fileContext, Strings& out)
 		{
@@ -139,7 +161,7 @@ namespace sys {
 		}
 
 		/**
-		*  ¶ÁÈ¡ÔöÁ¿
+		*  è¯»å–å¢é‡
 		*/
 		bool readDiffsForm(const string& name, Diffs& out)
 		{
@@ -159,7 +181,7 @@ namespace sys {
 		}
 
 		/**
-		* Ğ´ÔöÁ¿µ½ÎÄ¼şÖĞ
+		* å†™å¢é‡åˆ°æ–‡ä»¶ä¸­
 		*/
 		bool writeDiffsTo(const string& name, const Diffs& dif)
 		{
@@ -176,7 +198,7 @@ namespace sys {
 		}
 
 		/**
-		 *  ´´½¨Ä¿Â¼
+		 *  åˆ›å»ºç›®å½•
 		 */
 		bool makeDir(const string& path)
 		{
@@ -184,7 +206,7 @@ namespace sys {
 		}
 
 		/**
-		 * ¶ÁÈ¡»º´æÎÄ¼ş
+		 * è¯»å–ç¼“å­˜æ–‡ä»¶
 		 */
 		bool readCache(const string& path, string& buffer)
 		{
@@ -207,7 +229,7 @@ namespace sys {
 		}
 
 		/**
-		 * Ğ´»º´æÎÄ¼ş
+		 * å†™ç¼“å­˜æ–‡ä»¶
 		 */
 		bool writeCache(const string& path, const string& buffer)
 		{
@@ -224,7 +246,7 @@ namespace sys {
 		}
 
 		/**
-		 * »ñÈ¡ÎÄ¼ş×´Ì¬
+		 * è·å–æ–‡ä»¶çŠ¶æ€
 		 */
 		bool getFileStatu(const string& name, FileStatu& out)
 		{
@@ -248,13 +270,13 @@ namespace sys {
 	};
 };
 
-// Àà¶¨ÒåÇø // 
+// ç±»å®šä¹‰åŒº // 
 namespace sys 
 {
 
 	/**
-	 * µ¥ÀıÄ£Ê½
-	 *		Î¬»¤»º´æĞÅÏ¢
+	 * å•ä¾‹æ¨¡å¼
+	 *		ç»´æŠ¤ç¼“å­˜ä¿¡æ¯
 	 */
 	class Git
 	{
@@ -266,20 +288,20 @@ namespace sys
 		}
 
 		/*
-		* ³õÊ¼»¯£º¶ÁÈ¡»º´æ
-		*	1. »º´æÖĞ¶ÁÈ¡ce
-		*	2. ½¨Á¢»º´æÖĞÎÄ¼şÁĞ±í cach_files£¬²¢ÅÅĞò
-		*	3. ½¨Á¢»º´æÖĞÎÄ¼şÃû -> ÎÄ¼şÖ¸ÕëÓ³Éä
+		* åˆå§‹åŒ–ï¼šè¯»å–ç¼“å­˜
+		*	1. ç¼“å­˜ä¸­è¯»å–ce
+		*	2. å»ºç«‹ç¼“å­˜ä¸­æ–‡ä»¶åˆ—è¡¨ cach_filesï¼Œå¹¶æ’åº
+		*	3. å»ºç«‹ç¼“å­˜ä¸­æ–‡ä»¶å -> æ–‡ä»¶æŒ‡é’ˆæ˜ å°„
 		*/
 		bool initial()
 		{
 			string buffer;
-			if (funcs::readCache(cache_path, buffer) == false)
+			if (funcs::readCache(sys::cache_path, buffer) == false)
 				return false;
 
 			ce.shine_serial_decode(buffer);
 
-			// ½¨Á¢ceµÄÎÄ¼şÁĞ±í ºÍÎÄ¼şÖ¸ÕëÓ³Éä
+			// å»ºç«‹ceçš„æ–‡ä»¶åˆ—è¡¨ å’Œæ–‡ä»¶æŒ‡é’ˆæ˜ å°„
 			for (auto it = ce.files.begin(); it != ce.files.end(); it++)
 			{
 				cach_files.emplace_back(it->filename);
@@ -300,7 +322,7 @@ namespace sys
 		}
 
 		/**
-		 * Ìí¼ÓÒ»¸öÎÄ¼şµ½»º´æÖĞ
+		 * æ·»åŠ ä¸€ä¸ªæ–‡ä»¶åˆ°ç¼“å­˜ä¸­
 		 */
 		bool addFile(const string& name)
 		{
@@ -337,7 +359,7 @@ namespace sys
 		}
 
 		/**
-		 * ´Ó»º´æÖĞÉ¾³ıÒ»¸öÎÄ¼ş
+		 * ä»ç¼“å­˜ä¸­åˆ é™¤ä¸€ä¸ªæ–‡ä»¶
 		 */
 		bool removeFile(const string& name)
 		{
@@ -356,7 +378,7 @@ namespace sys
 				funcs::writeCache(write_path, incer_buff);
 			}
 
-			// ¸ÄÎÄ¼ş×´Ì¬
+			// æ”¹æ–‡ä»¶çŠ¶æ€
 			auto pfile = const_cast<File*>(&(*const_p_file));
 			pfile->version++;
 			pfile->isDelete = true;
@@ -367,27 +389,27 @@ namespace sys
 		}
 
 		/**
-		 * ĞŞ¸Ä»º´æÖĞµÄÎÄ¼ş
+		 * ä¿®æ”¹ç¼“å­˜ä¸­çš„æ–‡ä»¶
 		 */
 		bool modifyFile(const string& name)
 		{
 			auto const_pfile = hash_file[name];
 
-			// »ñÈ¡Ô­Ê¼°æ±¾
+			// è·å–åŸå§‹ç‰ˆæœ¬
 			string  origin_path = cache_dir + "\\" + const_pfile->nameHash.toString() + "\\" + const_pfile->nameHash.toString();
 			string  origin_text; funcs::readMappFile(origin_path, origin_text);
 			Strings origin_lins; funcs::splitString(origin_text, origin_lins);
 
-			// »ñÈ¡µ±Ç°°æ±¾
+			// è·å–å½“å‰ç‰ˆæœ¬
 			string	curent_text; funcs::readMappFile(name, curent_text);
 			Strings curent_lins; funcs::splitString(curent_text, curent_lins);
 
-			// Ğ´ÔöÁ¿
+			// å†™å¢é‡
 			string incer_path = cache_dir + "\\" + const_pfile->nameHash.toString() + "\\" + std::to_string(const_pfile->version);
 			auto diffs = myers::get_diff(origin_lins, curent_lins);
 			funcs::writeDiffsTo(incer_path, diffs);
 
-			// ¸ÄÎÄ¼ş×´Ì¬
+			// æ”¹æ–‡ä»¶çŠ¶æ€
 			auto pfile = const_cast<File*>(&(*const_pfile));
 			pfile->version++;
 			funcs::getFileStatu(name, pfile->fileStat);
@@ -400,7 +422,7 @@ namespace sys
 		}
 
 		/**
-		 * »Ö¸´ÎÄ¼şµÄÉÏÒ»°æ±¾
+		 * æ¢å¤æ–‡ä»¶çš„ä¸Šä¸€ç‰ˆæœ¬
 		 */
 		bool resetFile(const string& name)
 		{
@@ -443,22 +465,22 @@ namespace sys
 		
 
 	public:
-		/* ÎÄ¼ş×´Ì¬ÁĞ±í */
+		/* æ–‡ä»¶çŠ¶æ€åˆ—è¡¨ */
 		Caches ce;
 
-		/* »º´æÖĞ£º ÎÄ¼şÃûÁĞ±í */
+		/* ç¼“å­˜ä¸­ï¼š æ–‡ä»¶ååˆ—è¡¨ */
 		Strings cach_files;
 
-		/* »º´æÖĞ£º ÎÄ¼şÃû -> ÎÄ¼ş×´Ì¬Ö¸Õë */
+		/* ç¼“å­˜ä¸­ï¼š æ–‡ä»¶å -> æ–‡ä»¶çŠ¶æ€æŒ‡é’ˆ */
 		std::map<string, std::set<File>::iterator> hash_file;
 
-		/* ´Ë´Î¸Ä¶¯µÄÎÄ¼şÁĞ±í */
+		/* æ­¤æ¬¡æ”¹åŠ¨çš„æ–‡ä»¶åˆ—è¡¨ */
 		Version version;
 	};
 
 	/**
-	 * µ¥ÀıÄ£Ê½
-	 * µ±Ç°Ä¿Â¼¹ÜÀíÀà
+	 * å•ä¾‹æ¨¡å¼
+	 * å½“å‰ç›®å½•ç®¡ç†ç±»
 	 */
 	class Cur
 	{
@@ -482,15 +504,16 @@ namespace sys
 		Cur& operator=(const Cur&) = delete;
 
 	private:
-		/* Ä¿Â¼ÏÂ£º ÎÄ¼şÃûÁĞ±í */
+		/* ç›®å½•ä¸‹ï¼š æ–‡ä»¶ååˆ—è¡¨ */
 		Strings curr_files;
 
-		/* »ñÈ¡Ä¿Â¼ÏÂËùÓĞÎÄ¼şÁĞ±í */
+#ifdef WIN32
+		/* è·å–ç›®å½•ä¸‹æ‰€æœ‰æ–‡ä»¶åˆ—è¡¨ */
 		void getFilesAll(string path, Strings& files)
 		{
-			//ÎÄ¼ş¾ä±ú
+			//æ–‡ä»¶å¥æŸ„
 			long  hFile = 0;
-			//ÎÄ¼şĞÅÏ¢
+			//æ–‡ä»¶ä¿¡æ¯
 			struct _finddata_t fileinfo;
 			string p;
 			if ((hFile = _findfirst(p.assign(path).append("\\*").c_str(), &fileinfo)) != -1)
@@ -516,12 +539,41 @@ namespace sys
 				_findclose(hFile);
 			}
 		}
+#else
+		bool getFilesAll(string path, Strings& out)
+		{
+			DIR *dir = opendir(path.c_str());
+			if (dir == NULL)
+				return false;
+
+			struct dirent *ptr;
+			struct stat  statu;
+			static string curr;
+
+			while((ptr = readdir(dir)) != NULL)
+			{
+				if (ptr->d_name[0] == '.')
+					continue;
+
+				curr.assign(path).append("/").append(ptr->d_name);
+				stat(curr.c_str(), &statu);
+				
+				if (S_ISDIR(statu.st_mode))
+					getFilesAll(curr, out);
+
+				else if (S_ISREG(statu.st_mode))
+					out.emplace_back(curr);
+			}
+
+			closedir(dir);
+		}
+#endif
 	};
 
 	namespace funcs
 	{
 		/**
-		* »ñÈ¡¸Ä¶¯ÎÄ¼şÁĞ±í
+		* è·å–æ”¹åŠ¨æ–‡ä»¶åˆ—è¡¨
 		*/
 		Changes getChangedFiles()
 		{
@@ -555,12 +607,12 @@ namespace sys
 
 				case myers::EQU:
 				{
-					// ÅĞ¶ÏĞŞ¸ÄÊ±¼äÊÇ·ñ¸Ä±ä
+					// åˆ¤æ–­ä¿®æ”¹æ—¶é—´æ˜¯å¦æ”¹å˜
 					FileStatu t_fstatu;
 					getFileStatu(*b, t_fstatu);
 					if (Git::getInstance()->hash_file[*a]->fileStat.mtime != t_fstatu.mtime)
 					{
-						// ÅĞ¶ÏÎÄ¼şÄÚÈİ¹şÏ£ÊÇ·ñ¸Ä±ä
+						// åˆ¤æ–­æ–‡ä»¶å†…å®¹å“ˆå¸Œæ˜¯å¦æ”¹å˜
 						string file_text;
 						readMappFile(*a, file_text);
 						if (austin::MurmurHash3(file_text.c_str(), file_text.size()) != Git::getInstance()->hash_file[*a]->fileHash)
@@ -601,12 +653,12 @@ namespace sys {
 
 
 	/**
-	* ³õÊ¼»¯È«¾Ö±äÁ¿
+	* åˆå§‹åŒ–å…¨å±€å˜é‡
 	*/
 	void GIT_Start(const char* arg)
 	{
 		curr_dir = arg;
-		curr_dir = curr_dir.substr(0, curr_dir.rfind("\\"));
+		//curr_dir = curr_dir.substr(0, curr_dir.rfind("\\"));
 		cache_path = curr_dir + CACHE_FILE;
 		cache_dir = curr_dir + CACHE_DIR;
 

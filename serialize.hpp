@@ -1,13 +1,13 @@
 /**
 *****************************************************************************
 *
-*@note shine serialĞòÁĞ»¯¿â https://github.com/shineframe/shine_serial
+*@note shine serialåºåˆ—åŒ–åº“ https://github.com/shineframe/shine_serial
 *
 *@file shine_serial.hpp
 *
-*@brief ĞòÁĞ»¯¿â -- shine serial
+*@brief åºåˆ—åŒ–åº“ -- shine serial
 *
-*Ê¹ÓÃSHINE_SERIALºê£¬Ö»ĞèÒªÒ»ĞĞ´úÂë¼´¿ÉÍê³ÉC++¶ÔÏóĞòÁĞ»¯/·´ĞòÁĞ»¯²Ù×÷
+*ä½¿ç”¨SHINE_SERIALå®ï¼Œåªéœ€è¦ä¸€è¡Œä»£ç å³å¯å®ŒæˆC++å¯¹è±¡åºåˆ—åŒ–/ååºåˆ—åŒ–æ“ä½œ
 *
 *@todo
 *
@@ -24,6 +24,8 @@
 #if (defined WIN32)
 #pragma warning(disable:4146)
 #endif
+
+#include "xgitconfig.h"
 
 #define SHINE_SERIAL_MARCO_EXPAND(...) __VA_ARGS__
 #define SHINE_SERIAL_MAKE_ARG_LIST_1(op, arg, ...)   op(arg)

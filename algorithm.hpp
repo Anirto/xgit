@@ -2,7 +2,25 @@
 #include "xgitconfig.h"
 #include "serialize.hpp"
 
-//*************************************** 定义哈希结构 ********************************//
+#ifndef WIN32
+unsigned _rotl (unsigned val,int shift)
+{
+        register unsigned hibit;        /* non-zero means hi bit set */
+        register unsigned num = val;    /* number to rotate */
+        shift &= 0x1f;                  /* modulo 32 -- this will also make
+                                           negative shifts work */
+        while (shift--) 
+		{
+			hibit = num & 0x80000000;  /* get high bit */
+			num <<= 1;              /* shift left one bit */
+			if (hibit)
+				num |= 1;       /* set lo bit if hi bit was set */
+        }
+        return num;
+}
+#endif
+
+//*************************************** 瀹氫箟鍝堝笇缁撴瀯 ********************************//
 struct HashValue
 {
 	HashValue(uint32_t a, uint32_t b, uint32_t c, uint32_t d) : v1(a), v2(b), v3(c), v4(d) {}
@@ -34,7 +52,7 @@ struct HashValue
 	std::string toString() const
 	{
 		static char hexval[64];
-		sprintf_s(hexval, 64, "%08x%08x%08x%08x", v1, v2, v3, v4);
+		sprintf(hexval,  "%08x%08x%08x%08x", v1, v2, v3, v4);
 		return std::string(hexval);
 	}
 
@@ -43,7 +61,7 @@ struct HashValue
 	SHINE_SERIAL(HashValue, v1, v2, v3, v4);
 };
 
-//*************************************** 定义增量结构 ********************************//
+//*************************************** 瀹氫箟澧為噺缁撴瀯 ********************************//
 struct Diff
 {
 	uint32_t index;
@@ -58,7 +76,6 @@ struct Diffs
 };
 
 //*************************************** end ******************************************//
-
 namespace austin {
 	
 	//-----------------------------------------------------------------------------

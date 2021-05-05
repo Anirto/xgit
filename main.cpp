@@ -1,13 +1,19 @@
 
 #include "gitsystem.hpp"
 
+#ifdef WIN32
+#define TESTDIR "D:\\Repo\\xgit\\test"
+#else
+#define TESTDIR "/var/tmp/xc/xgit/test"
+#endif
+
 
 using namespace std;
 
-// ²âÊÔº¯Êı
+// æµ‹è¯•å‡½æ•°
 static void test()
 {
-	// Éú³ÉÎÄ±¾
+	// ç”Ÿæˆæ–‡æœ¬
 	ofstream out1("1.txt");
 	out1 << "1111\n\n4444\n5555" << endl;
 
@@ -17,7 +23,7 @@ static void test()
 	out1.close();
 	out2.close();
 
-	// ¶ÁÈ¡ÎÄ±¾
+	// è¯»å–æ–‡æœ¬
 	string txt_content; Strings txt_lines;
 	sys::funcs::readMappFile("1.txt", txt_content);
 	sys::funcs::splitString(txt_content, txt_lines);
@@ -26,17 +32,17 @@ static void test()
 	sys::funcs::readMappFile("2.txt", txt_content1);
 	sys::funcs::splitString(txt_content1, txt_lines1);
 
-	// ¼ÆËãÔöÁ¿
+	// è®¡ç®—å¢é‡
 	auto diffs = myers::get_diff(txt_lines, txt_lines1);
 
-	// ĞòÁĞ»¯£¬Ğ´ÔöÁ¿µ½ÎÄ¼şÖĞ
+	// åºåˆ—åŒ–ï¼Œå†™å¢é‡åˆ°æ–‡ä»¶ä¸­
 	sys::funcs::writeDiffsTo("1_2", diffs);
 	diffs.diffs.clear();
 
-	// ·´ĞòÁĞ»¯£¬¶ÁÔöÁ¿
+	// ååºåˆ—åŒ–ï¼Œè¯»å¢é‡
 	sys::funcs::readDiffsForm("1_2", diffs);
 
-	// ºÏ²¢ÔöÁ¿£¬
+	// åˆå¹¶å¢é‡ï¼Œ
 	myers::merage_diff(txt_lines, diffs);
 
 	for (auto& x : txt_lines)
@@ -63,12 +69,12 @@ static void help()
 
 int main(int argc, char* argv[])
 {
-	sys::GIT_Start("D:\\Repo\\xgit\\test\\");
+	sys::GIT_Start(TESTDIR);
 	string cmd;
 
 	do
 	{
-		cout << "D:\\Repo\\xgit\\test" << endl << ">>";
+		cout << TESTDIR << endl << ">>";
 		cin >> cmd;
 		if (cmd == "init")
 			sys::GIT_Init();
