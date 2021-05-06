@@ -92,7 +92,7 @@ namespace sys {
 		*/
 		bool readMappFile(const string& name, string& out)
 		{
-#ifdef WIN32
+#if defined(_WIN32) || defined(_WIN64)
 			// 内存映射
 			HANDLE hfile = CreateFile(name.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			auto ttt = GetLastError();
@@ -336,8 +336,8 @@ namespace sys
 				return false;
 
 			// to do: how to juge it is binary file
-			if (file.fileStat.mode & S_IFMT != 0x0020000)
-				return false;
+			//if (file.fileStat.mode & S_IFMT != 0x0020000)
+			//	return false;
 
 			file.version = 0;
 			file.filename = name;
@@ -406,7 +406,7 @@ namespace sys
 
 			// 写增量
 			string incer_path = cache_dir + "\\" + const_pfile->nameHash.toString() + "\\" + std::to_string(const_pfile->version);
-			auto diffs = myers::get_diff(origin_lins, curent_lins);
+			auto diffs = myers::getDiffs(origin_lins, curent_lins);
 			funcs::writeDiffsTo(incer_path, diffs);
 
 			// 改文件状态
@@ -447,7 +447,7 @@ namespace sys
 			Diffs diffs;
 			funcs::readDiffsForm(incer_path, diffs);
 
-			myers::merage_diff(origin_lines, diffs);
+			myers::merageDiff(origin_lines, diffs);
 			
 			std::ofstream out(name, std::ios::trunc | std::ios::binary);
 			for (auto& line : origin_lines)

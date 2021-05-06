@@ -1,11 +1,6 @@
 
 #include "gitsystem.hpp"
 
-#ifdef WIN32
-#define TESTDIR "D:\\Repo\\xgit\\test"
-#else
-#define TESTDIR "/var/tmp/xc/xgit/test"
-#endif
 
 
 using namespace std;
@@ -33,7 +28,7 @@ static void test()
 	sys::funcs::splitString(txt_content1, txt_lines1);
 
 	// 计算增量
-	auto diffs = myers::get_diff(txt_lines, txt_lines1);
+	auto diffs = myers::getDiffs(txt_lines, txt_lines1);
 
 	// 序列化，写增量到文件中
 	sys::funcs::writeDiffsTo("1_2", diffs);
@@ -43,7 +38,7 @@ static void test()
 	sys::funcs::readDiffsForm("1_2", diffs);
 
 	// 合并增量，
-	myers::merage_diff(txt_lines, diffs);
+	myers::merageDiff(txt_lines, diffs);
 
 	for (auto& x : txt_lines)
 	{
@@ -84,10 +79,10 @@ int main(int argc, char* argv[])
 			sys::GIT_Commit();
 		else if (cmd == "reset")
 			sys::GIT_Reset();
-		else if (cmd == "exit")
-			break;
 		else if (cmd == "help")
 			help();
+		else if (cmd == "exit")
+			break;
 		else
 			cerr << "unknown command" << endl;
 		cout << endl;

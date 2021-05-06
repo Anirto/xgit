@@ -37,12 +37,16 @@
 #include <sstream>
 
 
-#ifdef WIN32
+#if defined(_WIN32) || defined(_WIN64)
     #include <direct.h>
     #include <windows.h>
     #include <fileapi.h>
     #include <winbase.h>
     #include <io.h>
+
+    #define TESTDIR     "D:\\Repo\\xgit\\test"
+    #define CACHE_DIR   "\\.git\\objs"
+    #define CACHE_FILE  "\\.git\\cache"
 #else
     #include <sys/io.h>
     #include <sys/types.h>
@@ -55,11 +59,12 @@
     #define _close close
     #define _mkdir(path) mkdir(path, S_IRWXO)
     #define _access eaccess
-#endif
 
+    #define TESTDIR     "/var/tmp/xc/xgit/test"
+    #define CACHE_DIR   "/.git/objs"
+    #define CACHE_FILE  "/.git/cache"
+#endif
 
 
 using Strings = std::vector<std::string>;
 
-#define CACHE_DIR	 "\\.git\\objs"
-#define CACHE_FILE	 "\\.git\\cache"

@@ -300,7 +300,7 @@ namespace myers {
 		throw "not found";
 	}
 
-	Diffs get_diff(const Strings& stra, const Strings& strb)
+	Diffs getDiffs(const Strings& stra, const Strings& strb)
 	{
 		Contailer ses = diff(stra.begin(), stra.end(), strb.begin(), strb.end());
 		Diffs ret;
@@ -351,7 +351,7 @@ namespace myers {
 		return ret;
 	}
 
-	void merage_diff(Strings& out, const Diffs& diffs)
+	void merageDiff(Strings& out, const Diffs& diffs)
 	{
 		for (auto& it : diffs.diffs)
 		{
