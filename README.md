@@ -15,13 +15,11 @@ xgit是本人毕业设计，是一个用原生c++编写的版本控制软件，�
 
 ---
 
-如果你是windwos下，使用vs2019打开vcxporj文件即可
+###### WIN
 
-vs2019 x86
+使用vs2019打开xgit.vcxpro生成即可
 
-debug|release
-
-如果是Liunx
+###### Liunx
 
 ```shell
 git clone 
