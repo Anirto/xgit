@@ -92,7 +92,7 @@ namespace sys {
 		*/
 		bool readMappFile(const string& name, string& out)
 		{
-#if defined(_WIN32) || defined(_WIN64)
+#ifdef WIN32
 			// 内存映射
 			HANDLE hfile = CreateFile(name.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			auto ttt = GetLastError();
@@ -315,7 +315,7 @@ namespace sys
 		bool finish()
 		{
 			string buffer = version.shine_serial_encode();
-			funcs::writeCache(curr_dir + "\\.git\\" + std::to_string(ce.git_version++), buffer);
+			funcs::writeCache(curr_dir + GIT_DIR + PATH_SEP + std::to_string(ce.git_version++), buffer);
 			version.cgd_files.clear();
 			buffer = ce.shine_serial_encode();
 			return funcs::writeCache(cache_path, buffer);
@@ -326,7 +326,6 @@ namespace sys
 		 */
 		bool addFile(const string& name)
 		{
-		
 			string file_text;
 			if (funcs::readMappFile(name, file_text) == false)
 				return false;
@@ -351,11 +350,12 @@ namespace sys
 
 			version.cgd_files.emplace_back(name);
 
-			string write_dir = cache_dir + "\\" + file.nameHash.toString();
+			string write_dir = cache_dir + PATH_SEP + file.nameHash.toString();
+			
 			if (_mkdir(write_dir.c_str()) < 0)
 				return false;
 
-			return funcs::writeCache(write_dir + "\\" + file.nameHash.toString(), file_text);
+			return funcs::writeCache(write_dir + PATH_SEP + file.nameHash.toString(), file_text);
 		}
 
 		/**
@@ -366,8 +366,8 @@ namespace sys
 			auto const_p_file = hash_file[name];
 			auto nam_hash = austin::MurmurHash3(name.c_str(), name.size());
 
-			string incer_path = cache_dir + "\\" + nam_hash.toString() + "\\" + std::to_string(const_p_file->version - 1);
-			string write_path = cache_dir + "\\" + nam_hash.toString() + "\\" + std::to_string(const_p_file->version);
+			string incer_path = cache_dir + PATH_SEP + nam_hash.toString() + PATH_SEP + std::to_string(const_p_file->version - 1);
+			string write_path = cache_dir + PATH_SEP + nam_hash.toString() + PATH_SEP + std::to_string(const_p_file->version);
 			string incer_buff;
 
 			if (const_p_file->version == 0)
@@ -396,7 +396,7 @@ namespace sys
 			auto const_pfile = hash_file[name];
 
 			// 获取原始版本
-			string  origin_path = cache_dir + "\\" + const_pfile->nameHash.toString() + "\\" + const_pfile->nameHash.toString();
+			string  origin_path = cache_dir + PATH_SEP + const_pfile->nameHash.toString() + PATH_SEP + const_pfile->nameHash.toString();
 			string  origin_text; funcs::readMappFile(origin_path, origin_text);
 			Strings origin_lins; funcs::splitString(origin_text, origin_lins);
 
@@ -405,7 +405,7 @@ namespace sys
 			Strings curent_lins; funcs::splitString(curent_text, curent_lins);
 
 			// 写增量
-			string incer_path = cache_dir + "\\" + const_pfile->nameHash.toString() + "\\" + std::to_string(const_pfile->version);
+			string incer_path = cache_dir + PATH_SEP + const_pfile->nameHash.toString() + PATH_SEP + std::to_string(const_pfile->version);
 			auto diffs = myers::getDiffs(origin_lins, curent_lins);
 			funcs::writeDiffsTo(incer_path, diffs);
 
@@ -428,8 +428,8 @@ namespace sys
 		{
 			auto p_file = hash_file[name];
 
-			auto origi_path = cache_dir + "\\" + p_file->nameHash.toString() + "\\" + p_file->nameHash.toString();
-			auto incer_path = cache_dir + "\\" + p_file->nameHash.toString() + "\\" + std::to_string(p_file->version-2);
+			auto origi_path = cache_dir + PATH_SEP + p_file->nameHash.toString() + PATH_SEP + p_file->nameHash.toString();
+			auto incer_path = cache_dir + PATH_SEP + p_file->nameHash.toString() + PATH_SEP + std::to_string(p_file->version-2);
 			string origin_text, incer_buff;
 			funcs::readMappFile(origi_path, origin_text);
 
@@ -508,21 +508,34 @@ namespace sys
 		Strings curr_files;
 
 #ifdef WIN32
+
+		// x86与x64不兼容
+#ifdef _WIN64
+#define xfinddata	__finddata64_t
+#define xfindfirst	_findfirst64
+#define xfindnext	_findnext64
+#define xfindhandl	__int64
+#else
+#define xfinddata	_finddata_t
+#define xfindfirst	_findfirst
+#define xfindnext	_findnext
+#define xfindhandl	__int32
+#endif
 		/* 获取目录下所有文件列表 */
 		void getFilesAll(string path, Strings& files)
 		{
 			//文件句柄
-			long  hFile = 0;
+			xfindhandl  hFile = 0;
 			//文件信息
-			struct _finddata_t fileinfo;
+			struct xfinddata fileinfo;
 			string p;
-			if ((hFile = _findfirst(p.assign(path).append("\\*").c_str(), &fileinfo)) != -1)
+			if ((hFile = xfindfirst(p.assign(path).append("\\*").c_str(), &fileinfo)) != -1)
 			{
 				do
 				{
 					if ((fileinfo.attrib & _A_SUBDIR))
 					{
-						if (strcmp(fileinfo.name, ".") != 0 && strcmp(fileinfo.name, "..") != 0)
+						if (fileinfo.name[0] != '.')
 						{
 							//files.push_back(p.assign(path).append("\\").append(fileinfo.name) );
 							getFilesAll(p.assign(path).append("\\").append(fileinfo.name), files);
@@ -530,12 +543,11 @@ namespace sys
 					}
 					else
 					{
-						if (path.find(".git") == string::npos)
-							files.push_back(p.assign(path).append("\\").append(fileinfo.name));
+						files.push_back(p.assign(path).append("\\").append(fileinfo.name));
 					}
 						
 
-				} while (_findnext(hFile, &fileinfo) == 0);
+				} while (xfindnext(hFile, &fileinfo) == 0);
 				_findclose(hFile);
 			}
 		}
@@ -566,6 +578,8 @@ namespace sys
 			}
 
 			closedir(dir);
+			std::sort(out.begin(), out.end());
+
 		}
 #endif
 	};
@@ -658,7 +672,6 @@ namespace sys {
 	void GIT_Start(const char* arg)
 	{
 		curr_dir = arg;
-		//curr_dir = curr_dir.substr(0, curr_dir.rfind("\\"));
 		cache_path = curr_dir + CACHE_FILE;
 		cache_dir = curr_dir + CACHE_DIR;
 
@@ -675,7 +688,7 @@ namespace sys {
 	void GIT_Init()
 	{
 
-		if (_mkdir((curr_dir+"\\.git").c_str()) < 0 || _mkdir(cache_dir.c_str()) < 0)
+		if (_mkdir((curr_dir + GIT_DIR).c_str()) < 0 || _mkdir(cache_dir.c_str()) < 0)
 			std::cerr << "fatal: creat cache files failed." << std::endl;
 	}
 
@@ -715,7 +728,7 @@ namespace sys {
 	void GIT_Commit()
 	{
 		auto changes = funcs::getChangedFiles();
-
+		
 		if (changes.size() == 0)
 			return;
 
@@ -747,7 +760,7 @@ namespace sys {
 	{
 		string buffer;
 		auto version = Git::getInstance()->ce.git_version--;
-		string path = curr_dir + "\\.git\\" + std::to_string(version-1);
+		string path = curr_dir + GIT_DIR + PATH_SEP + std::to_string(version-1);
 
 		bool dbg = funcs::readCache(path, buffer);
 		Git::getInstance()->version.shine_serial_decode(buffer);

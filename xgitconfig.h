@@ -37,7 +37,7 @@
 #include <sstream>
 
 
-#if defined(_WIN32) || defined(_WIN64)
+#ifdef _WIN32
     #include <direct.h>
     #include <windows.h>
     #include <fileapi.h>
@@ -45,8 +45,11 @@
     #include <io.h>
 
     #define TESTDIR     "D:\\Repo\\xgit\\test"
+    #define GIT_DIR     "\\.git"
     #define CACHE_DIR   "\\.git\\objs"
     #define CACHE_FILE  "\\.git\\cache"
+    #define PATH_SEP    "\\"
+
 #else
     #include <sys/io.h>
     #include <sys/types.h>
@@ -57,12 +60,14 @@
 
     #define _open open
     #define _close close
-    #define _mkdir(path) mkdir(path, S_IRWXO)
+    #define _mkdir(path) mkdir(path, 0777)
     #define _access eaccess
 
-    #define TESTDIR     "/var/tmp/xc/xgit/test"
+    #define TESTDIR     "/home/gec/xc/xgit/test"
+    #define GIT_DIR     "/.git"
     #define CACHE_DIR   "/.git/objs"
     #define CACHE_FILE  "/.git/cache"
+    #define PATH_SEP    "/"
 #endif
 
 
