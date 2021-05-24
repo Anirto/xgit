@@ -685,6 +685,9 @@ namespace sys {
 		Git::getInstance()->initial();
 	}
 
+	/**
+	 * 创建仓库
+	 */
 	void GIT_Init()
 	{
 
@@ -692,9 +695,9 @@ namespace sys {
 			std::cerr << "fatal: creat cache files failed." << std::endl;
 	}
 
-	/*
-	* 
-	*/
+	/**
+	 * 获取状态
+	 */
 	void GIT_Status()
 	{
 		auto changes = funcs::getChangedFiles();
@@ -725,6 +728,9 @@ namespace sys {
 		}
 	}
 
+	/**
+	 * 提交版本
+	 */
 	void GIT_Commit()
 	{
 		auto changes = funcs::getChangedFiles();
@@ -756,6 +762,9 @@ namespace sys {
 		sys::Git::getInstance()->finish();
 	}
 
+	/**
+	 * 回退版本
+	 */
 	void GIT_Reset()
 	{
 		string buffer;
